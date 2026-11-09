@@ -1,0 +1,10 @@
+# FinanzKit: keine Zahlen ins Repo. Daten liegen nur im OneDrive-Ordner „Finanzen“.
+*.csv
+*.pdf
+*.xlsx
+*.xls
+*.json
+!package.json
+finanzkit/
+Finanzen/
+test_out/

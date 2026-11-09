@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Keine Verbindung nach außen: die App liest nur den lokalen Ordner „Finanzen“. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<title>FinanzKit</title>
+<style>
+:root{
+  --sp-app:#8a5f0f; --sp-app-dunkel:#76510c; --sp-app-hell:#f6efe2;
+  --sp-band:#1b2a35; --sp-band-text:#dfe8ee; --sp-band-muted:#9fb1be;
+  --bg:#f4f6f8; --panel:#fff; --line:#e1e6ea; --line-2:#cfd7dd;
+  --text:#1b2a35; --text-2:#4b5b67; --muted:#7a8892;
+  --s-umsatz:#2a78d6; --s-kosten:#eb6834; --s-zweit:#1baf7a;
+  --grid:#e8ecef; --achse:#c3cbd1;
+  --ok:#0b7a0b; --warn-bg:#fff4dc; --warn-line:#e7c66f; --krit:#b8322f; --krit-bg:#fdeceb;
+  --radius:10px;
+  font-family:"Segoe UI",system-ui,-apple-system,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-size:14px;line-height:1.4}
+button,select,input{font:inherit;color:inherit}
+a{color:var(--sp-app-dunkel)}
+.num{font-variant-numeric:tabular-nums}
+
+/* Kopf */
+#kopf{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:14px;height:64px;padding:0 18px;background:var(--sp-band);color:var(--sp-band-text)}
+#kopf .marke{display:flex;flex-direction:column;line-height:1.15}
+#kopf .marke small{color:var(--sp-band-muted);font-size:11.5px}
+#kopf .marke strong{font-size:19px;color:#fff;letter-spacing:.2px}
+#kopf .marke strong i{font-style:normal;display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--sp-app);margin-right:8px;vertical-align:1px;box-shadow:0 0 0 2px #fff3}
+#kopf .stand{color:var(--sp-band-muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#kopf .stand b{color:#fff;font-weight:600}
+#kopf .sp{flex:1}
+.pille{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:999px;font-size:12.5px;border:1px solid #ffffff33;color:#fff;background:#ffffff14;cursor:pointer;white-space:nowrap}
+.pille.lesen{background:#e7c66f;color:#2a2005;border-color:#e7c66f}
+.kbtn{height:36px;padding:0 14px;border-radius:8px;border:1px solid #ffffff40;background:transparent;color:#fff;cursor:pointer;white-space:nowrap}
+.kbtn:hover{background:#ffffff1a}
+
+/* Bausteine */
+main{max-width:1440px;margin:0 auto;padding:18px 18px 40px}
+.btn{height:38px;padding:0 16px;border-radius:8px;border:1px solid var(--line-2);background:#fff;cursor:pointer}
+.btn:hover{border-color:var(--sp-app);color:var(--sp-app-dunkel)}
+.btn.haupt{background:var(--sp-app);border-color:var(--sp-app);color:#fff;font-weight:600}
+.btn.haupt:hover{background:var(--sp-app-dunkel);color:#fff}
+.btn:disabled{opacity:.5;cursor:default}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px}
+.panel h2{margin:0 0 2px;font-size:16px}
+.panel .unter{margin:0 0 12px;color:var(--muted);font-size:12.5px}
+.hinweis{padding:10px 14px;border-radius:8px;background:var(--warn-bg);border:1px solid var(--warn-line);font-size:13px}
+.hinweis.krit{background:var(--krit-bg);border-color:#efb3b1}
+.leer{color:var(--muted)}
+.tag{display:inline-block;padding:1px 7px;border-radius:999px;font-size:11px;border:1px solid var(--line-2);color:var(--text-2);background:#fafbfc;white-space:nowrap}
+.tag.fix{border-color:#c8d6e4;background:#eef4fa}
+.tag.variabel{border-color:#f0c9b6;background:#fdf1eb}
+.tag.unbar{border-color:#dcdcdc;background:#f5f5f5}
+
+/* Start */
+#start{max-width:760px;margin:40px auto}
+#start h1{font-size:24px;margin:0 0 6px}
+#start p{color:var(--text-2)}
+#start .zeile{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0}
+#start ul{color:var(--text-2);padding-left:18px}
+#start code{background:#eef1f3;padding:1px 5px;border-radius:4px}
+
+/* Filter */
+.filter{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin:0 0 14px}
+.seg{display:inline-flex;border:1px solid var(--line-2);border-radius:8px;overflow:hidden;background:#fff}
+.seg button{border:0;background:none;padding:7px 12px;cursor:pointer;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--sp-app-hell);color:var(--sp-app-dunkel);font-weight:600}
+.filter label{color:var(--text-2);font-size:13px;margin-right:6px}
+
+/* Kennzahlen */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:14px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;min-height:96px}
+.kpi .l{color:var(--text-2);font-size:12.5px}
+.kpi .w{font-size:26px;font-weight:650;margin:2px 0 2px;letter-spacing:-.3px}
+.kpi .s{color:var(--muted);font-size:12px}
+.kpi .s .auf{color:var(--ok)} .kpi .s .ab{color:var(--krit)}
+.kpi.alarm{border-color:#efb3b1;background:linear-gradient(#fff,#fff8f8)}
+.kpi.alarm .w{color:var(--krit)}
+
+.raster{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}
+.b12{grid-column:span 12}.b8{grid-column:span 8}.b7{grid-column:span 7}.b6{grid-column:span 6}.b5{grid-column:span 5}.b4{grid-column:span 4}
+@media (max-width:1100px){.b8,.b7,.b6,.b5,.b4{grid-column:span 12}}
+
+/* Diagramme */
+.chart{position:relative;width:100%}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.chart text{font-family:inherit;fill:var(--muted);font-size:11px}
+.legende{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--text-2);margin:0 0 6px}
+.legende i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.legende i.linie{height:3px;border-radius:2px;vertical-align:3px}
+.legende i.strich{height:0;border-top:2px dashed var(--krit);border-radius:0;vertical-align:3px;background:none}
+#tip{position:fixed;z-index:50;pointer-events:none;background:#1b2a35;color:#fff;border-radius:8px;padding:8px 10px;font-size:12.5px;box-shadow:0 6px 18px #0003;display:none;max-width:320px}
+#tip .t{font-weight:600;margin-bottom:4px}
+#tip .r{display:flex;gap:14px;justify-content:space-between}
+#tip .r span:first-child{color:#c9d6df}
+#tip i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px}
+
+/* Tabellen */
+.tabwrap{overflow:auto;border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th{background:#f7f9fa;color:var(--text-2);font-weight:600;position:sticky;top:0;z-index:1}
+th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:inherit;z-index:2}
+tbody tr{background:#fff}
+tbody tr.gruppe{cursor:pointer}
+tbody tr.gruppe:hover{background:#fbf8f2}
+tbody tr.konto td{color:var(--text-2);font-size:12.5px;background:#fbfcfd}
+tbody tr.konto td:first-child{padding-left:28px}
+tbody tr.summe td{font-weight:650;background:#f7f9fa}
+td.auff{background:#fff4dc!important;box-shadow:inset 0 0 0 1px #e7c66f}
+td.neg{color:var(--krit)}
+.links td,.links th{text-align:left}
+.links td.num,.links th.num{text-align:right}
+
+/* Liste Auffälligkeiten */
+.auffliste{margin:0;padding:0;list-style:none}
+.auffliste li{padding:7px 0;border-bottom:1px solid var(--line);font-size:13px}
+.auffliste li:last-child{border-bottom:0}
+.auffliste b{font-weight:600}
+
+/* Platzhalter */
+.platz{border:1.5px dashed var(--line-2);border-radius:var(--radius);padding:16px 18px;background:#fbfcfd}
+.platz h2{font-size:16px;margin:0 0 4px}
+.platz p{margin:6px 0;color:var(--text-2);font-size:13px}
+.platz ul{margin:6px 0;padding-left:18px;color:var(--text-2);font-size:13px}
+
+/* Dialoge */
+dialog{border:0;border-radius:12px;padding:0;max-width:min(860px,94vw);width:860px;box-shadow:0 20px 60px #0004}
+dialog::backdrop{background:#1b2a3566}
+dialog .dk{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line)}
+dialog .dk h3{margin:0;font-size:17px;flex:1}
+dialog .di{padding:16px 18px;max-height:70vh;overflow:auto}
+dialog .df{display:flex;gap:10px;justify-content:flex-end;padding:12px 18px;border-top:1px solid var(--line)}
+.feld{display:grid;grid-template-columns:260px 1fr;gap:6px 14px;align-items:center;margin:0 0 12px}
+.feld label{color:var(--text-2)}
+.feld input[type=number],.feld input[type=text]{height:34px;padding:0 10px;border:1px solid var(--line-2);border-radius:7px;width:200px}
+.feld small{grid-column:2;color:var(--muted);margin-top:-4px}
+#mehrPop{position:fixed;z-index:60;background:#fff;color:var(--text);border-radius:10px;box-shadow:0 10px 30px #0004;padding:6px;min-width:260px;display:none}
+#mehrPop button,#mehrPop a{display:block;width:100%;text-align:left;padding:9px 12px;border:0;background:none;border-radius:7px;cursor:pointer;text-decoration:none;color:inherit}
+#mehrPop button:hover,#mehrPop a:hover{background:#f2ece1}
+#mehrPop hr{border:0;border-top:1px solid var(--line);margin:5px 4px}
+#flash{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#1b2a35;color:#fff;padding:10px 16px;border-radius:8px;display:none;z-index:70}
+
+@media print{
+  #kopf .kbtn,#kopf .pille,.filter,#mehrPop{display:none!important}
+  body{background:#fff}.panel,.kpi{break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<header id="kopf">
+  <div class="marke"><small>Spektron</small><strong><i aria-hidden="true"></i>FinanzKit</strong></div>
+  <div class="stand" id="kopfStand">Kein Ordner geöffnet</div>
+  <div class="sp"></div>
+  <button class="pille" id="modusPille" type="button" title="Gerät: Eingabe (Terminal) oder Lesemodus (Laptop) – umschalten"></button>
+  <button class="kbtn" id="btnNeuLaden" type="button" hidden title="Dateien im Ordner neu einlesen">↻ Neu einlesen</button>
+  <button class="kbtn" id="btnMehr" type="button" aria-haspopup="menu">Mehr …</button>
+</header>
+
+<div id="mehrPop" role="menu">
+  <button type="button" data-a="einstellungen">⚙ Einstellungen (rote Linien)</button>
+  <button type="button" data-a="pruefung">🔎 Daten &amp; Prüfung</button>
+  <button type="button" data-a="zuordnung">🗂 Kontenzuordnung</button>
+  <button type="button" data-a="ordner">📁 Anderen Ordner wählen</button>
+  <hr>
+  <button type="button" data-a="drucken">🖨 Drucken</button>
+  <button type="button" data-a="version">ℹ Version und Änderungen</button>
+  <a href="../rueckmeldung/" target="rueckmeldung" rel="noopener">💬 Rückmeldung ↗</a>
+</div>
+
+<main>
+  <section id="start" hidden>
+    <h1>FinanzKit</h1>
+    <p>Wo steht das Büro finanziell? FinanzKit liest die Monatsdaten aus dem geteilten OneDrive-Ordner <b>„Finanzen“</b> und zeigt Umsatz, Kosten, Fixkosten und Liquidität. Die Zahlen bleiben auf diesem Rechner – die App schickt nichts ins Internet.</p>
+    <div class="zeile">
+      <button class="btn haupt" id="btnOrdner" type="button">Ordner „Finanzen“ öffnen</button>
+      <button class="btn" id="btnWieder" type="button" hidden></button>
+      <label class="btn" id="lblDateien" style="display:inline-flex;align-items:center" title="Ohne Ordnerzugriff: Ordner einmal auswählen, nur ansehen">Nur ansehen (Ordner hochladen)<input type="file" id="inDateien" webkitdirectory multiple hidden></label>
+    </div>
+    <p>Erwartet wird der Unterordner <code>finanzkit</code> mit:</p>
+    <ul>
+      <li><code>susa/JJJJ-MM.csv</code> – Summen- und Saldenliste je Monat (Pflicht)</li>
+      <li><code>opos/JJJJ-MM.csv</code> – offene Posten je Monat (für Liquidität)</li>
+      <li><code>bank/kontostaende.csv</code> – Kontostände laut Kontoauszug (optional, sonst Buchsaldo)</li>
+      <li><code>einstellungen.json</code> – rote Linien; legt FinanzKit selbst an</li>
+    </ul>
+    <p class="leer" id="startFehler"></p>
+  </section>
+
+  <section id="app" hidden>
+    <div id="hinweise"></div>
+    <div class="filter">
+      <div><label>Zeitraum</label><span class="seg" id="segZeitraum"></span></div>
+      <div><label>Ansicht</label><span class="seg" id="segAnsicht"></span></div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <div class="raster">
+      <div class="panel b7">
+        <h2>Umsatz und Kosten</h2>
+        <p class="unter" id="ukUnter"></p>
+        <div class="legende"><span><i style="background:var(--s-umsatz)"></i>Umsatz</span><span><i style="background:var(--s-kosten)"></i>Kosten (ohne Partner-Entnahmen)</span></div>
+        <div class="chart" id="chUK"></div>
+      </div>
+      <div class="panel b5">
+        <h2>Liquidität</h2>
+        <p class="unter" id="liqUnter"></p>
+        <div class="legende"><span><i class="linie" style="background:var(--s-umsatz)"></i>Bank + Kasse (Monatsende)</span><span><i class="linie" style="background:var(--s-zweit)"></i>+ offene Forderungen</span><span><i class="strich"></i>Untergrenze</span></div>
+        <div class="chart" id="chLiq"></div>
+      </div>
+
+      <div class="panel b4">
+        <h2>Fixkosten je Monat</h2>
+        <p class="unter" id="fixUnter"></p>
+        <div id="fixListe"></div>
+      </div>
+      <div class="panel b4">
+        <h2>Offene Forderungen nach Alter</h2>
+        <p class="unter" id="opUnter"></p>
+        <div class="chart" id="chOP"></div>
+        <div id="opListe"></div>
+      </div>
+      <div class="panel b4">
+        <h2>Auffälligkeiten</h2>
+        <p class="unter">Automatisch erkannt – bitte kurz prüfen, nicht zwingend Fehler.</p>
+        <ul class="auffliste" id="auffListe"></ul>
+      </div>
+
+      <div class="platz b6" id="platzMarge">
+        <h2>Marge je Auftragsart <span class="tag">kommt</span></h2>
+        <p>Braucht den MOS'aik-Rechnungsexport (mit Projektnummer), die BelegKit-Stunden und die Laborrechnungen je Projekt.</p>
+        <div id="stundensatz"></div>
+      </div>
+      <div class="platz b6" id="platzKunde">
+        <h2>Umsatzanteil je Kunde <span class="tag">kommt</span></h2>
+        <p>Braucht den MOS'aik-Rechnungsexport. Rote Linie „Kundenanteil max.“: <b id="kundeLinie">noch offen</b>.</p>
+        <p>Bis dahin zeigt „Offene Forderungen“ nur, wer gerade schuldet – das ist <b>kein</b> Umsatzanteil.</p>
+      </div>
+
+      <div class="panel b12">
+        <h2>Kosten nach Gruppen</h2>
+        <p class="unter">Aus der Summen- und Saldenliste (SKR04). Zeile anklicken = Konten anzeigen. Gelb = weicht deutlich vom üblichen Monat ab.</p>
+        <div class="tabwrap" id="tabKosten"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<dialog id="dlg"><div class="dk"><h3 id="dlgTitel"></h3><button class="btn" type="button" id="dlgZu">Schließen</button></div><div class="di" id="dlgInhalt"></div><div class="df" id="dlgFuss"></div></dialog>
+<div id="tip" role="tooltip"></div>
+<div id="flash" role="status" aria-live="polite"></div>
+
+<script>
+'use strict';
+const APP_VERSION = '0.1.0';
+const AENDERUNGEN = [
+  ['0.1.0', '09.11.2026', 'Erste Fassung: Ordner „Finanzen“ öffnen, SuSa- und OPOS-Monatsdateien einlesen, Umsatz/Kosten, Liquidität mit Untergrenze, Fixkosten, Forderungen nach Alter, Auffälligkeiten, Kostengruppen mit Konten, Lesemodus für den Laptop.']
+];
+document.title = 'FinanzKit v' + APP_VERSION;
+
+/* ====================== Kontenzuordnung (SKR04) – keine Zahlen des Büros, nur Regeln ====================== */
+const GRUPPEN = [
+  { id: 'labor',      name: 'Labor / Fremdleistungen', art: 'variabel', konten: '6303, 5900–5999' },
+  { id: 'material',   name: 'Material / Wareneinkauf', art: 'variabel', konten: '5000–5899' },
+  { id: 'personal',   name: 'Personal',                art: 'fix',      konten: '6000–6199' },
+  { id: 'raum',       name: 'Raumkosten',              art: 'fix',      konten: '6300–6389 (ohne 6303)' },
+  { id: 'versich',    name: 'Versicherungen / Beiträge', art: 'fix',    konten: '6400–6439' },
+  { id: 'it',         name: 'Wartung / Instandhaltung / IT', art: 'fix', konten: '6440–6499' },
+  { id: 'kfz',        name: 'Fahrzeuge',               art: 'fix',      konten: '6500–6599, 7685' },
+  { id: 'reise',      name: 'Reise / Werbung / km-Geld', art: 'halbvariabel', konten: '6600–6699' },
+  { id: 'verwaltung', name: 'Verwaltung / Büro',       art: 'fix',      konten: '6700–6859' },
+  { id: 'zinsen',     name: 'Zinsen',                  art: 'fix',      konten: '7300–7399' },
+  { id: 'afa',        name: 'Abschreibungen',          art: 'unbar',    konten: '6200–6299' },
+  { id: 'sonstige',   name: 'Sonstiges / neutral',     art: 'neutral',  konten: '6390–6399, 6860–6999, 7400–7999' }
+];
+function gruppeVon(k){
+  if (k === 6303 || (k >= 5900 && k <= 5999)) return 'labor';
+  if (k >= 5000 && k <= 5899) return 'material';
+  if (k >= 6000 && k <= 6199) return 'personal';
+  if (k >= 6200 && k <= 6299) return 'afa';
+  if (k >= 6300 && k <= 6389) return 'raum';
+  if (k >= 6390 && k <= 6399) return 'sonstige';
+  if (k >= 6400 && k <= 6439) return 'versich';
+  if (k >= 6440 && k <= 6499) return 'it';
+  if ((k >= 6500 && k <= 6599) || k === 7685) return 'kfz';
+  if (k >= 6600 && k <= 6699) return 'reise';
+  if (k >= 6700 && k <= 6859) return 'verwaltung';
+  if (k >= 6860 && k <= 6999) return 'sonstige';
+  if (k >= 7300 && k <= 7399) return 'zinsen';
+  if (k >= 7400 && k <= 7999) return 'sonstige';
+  return null;
+}
+const istUmsatz   = k => k >= 4000 && k <= 4799 && !(k >= 4600 && k <= 4699);   // 46xx = unentgeltliche Wertabgaben → sonstige Erträge (wie DATEV-BWA)
+const istErtrag   = k => (k >= 4600 && k <= 4699) || (k >= 4800 && k <= 4999) || (k >= 7000 && k <= 7299);
+const istBank     = k => (k >= 1460 && k <= 1469) || (k >= 1600 && k <= 1899);
+const istFord     = k => k >= 1200 && k <= 1229;
+const istVerb     = k => k >= 3300 && k <= 3349;
+const istDarlehen = k => (k >= 3150 && k <= 3199) || (k >= 3500 && k <= 3599);
+const istEntnahme = k => k >= 2100 && k <= 2199;
+
+/* ====================== Einstellungen (liegen im Datenordner, nicht im Repo) ====================== */
+const STANDARD = {
+  version: 1,
+  untergrenzeMonate: 3,
+  reiseAlsFix: false,
+  tilgungAlsFix: true,
+  entnahmenInUntergrenze: false,
+  unternehmerlohnMonat: null,
+  kundenanteilMax: null,
+  mindestmarge: null,
+  produktiveStundenJahr: null,
+  tilgungOhneKonten: ''
+};
+
+/* ====================== Hilfen ====================== */
+const $ = s => document.querySelector(s);
+const el = (tag, attr, ...kids) => {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attr || {})){
+    if (v == null || v === false) continue;
+    if (k === 'text') e.textContent = v; else if (k === 'html') e.innerHTML = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v); else e.setAttribute(k, v === true ? '' : v);
+  }
+  for (const c of kids.flat()) if (c != null) e.append(c.nodeType ? c : document.createTextNode(c));
+  return e;
+};
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const nf0 = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 });
+const nf1 = new Intl.NumberFormat('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const nf2 = new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const eur = v => v == null || !isFinite(v) ? '–' : nf0.format(Math.round(v) || 0) + ' €';
+const eur2 = v => v == null || !isFinite(v) ? '–' : nf2.format(v) + ' €';
+const teur = v => nf0.format(Math.round(v / 1000)) + ' T€';
+const pct = v => v == null || !isFinite(v) ? '–' : nf0.format(Math.round(v * 100)) + ' %';
+const MN = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+const MNL = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+const mKurz = m => MN[+m.slice(5, 7) - 1] + ' ' + m.slice(2, 4);
+const mLang = m => MNL[+m.slice(5, 7) - 1] + ' ' + m.slice(0, 4);
+const mPlus = (m, n) => { const d = new Date(+m.slice(0, 4), +m.slice(5, 7) - 1 + n, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
+const quartal = m => m.slice(0, 4) + '-Q' + (Math.floor((+m.slice(5, 7) - 1) / 3) + 1);
+const datumDe = iso => iso ? iso.slice(8, 10) + '.' + iso.slice(5, 7) + '.' + iso.slice(0, 4) : '';
+const zahl = s => { if (s == null) return 0; s = String(s).trim().replace(/\s/g, ''); if (!s) return 0; if (/,\d*$/.test(s) || /\.\d{3}(\.|,|$)/.test(s)) s = s.replace(/\./g, '').replace(',', '.'); const v = parseFloat(s); return isFinite(v) ? v : 0; };
+const median = a => { const b = a.filter(isFinite).slice().sort((x, y) => x - y); if (!b.length) return 0; const i = b.length >> 1; return b.length % 2 ? b[i] : (b[i - 1] + b[i]) / 2; };
+function flash(t){ const f = $('#flash'); f.textContent = t; f.style.display = 'block'; clearTimeout(flash.t); flash.t = setTimeout(() => f.style.display = 'none', 3200); }
+
+/* CSV: Semikolon, Dezimalkomma, Anführungszeichen; Kopfzeile bestimmt die Spalten */
+function csvLesen(text){
+  text = text.replace(/^﻿/, '');
+  const zeilen = []; let z = [], f = '', q = false;
+  for (let i = 0; i < text.length; i++){
+    const c = text[i];
+    if (q){ if (c === '"'){ if (text[i + 1] === '"'){ f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true;
+    else if (c === ';'){ z.push(f); f = ''; }
+    else if (c === '\n' || c === '\r'){ if (c === '\r' && text[i + 1] === '\n') i++; z.push(f); f = ''; if (z.some(x => x !== '')) zeilen.push(z); z = []; }
+    else f += c;
+  }
+  z.push(f); if (z.some(x => x !== '')) zeilen.push(z);
+  if (!zeilen.length) return [];
+  const kopf = zeilen[0].map(h => h.trim().toLowerCase());
+  return zeilen.slice(1).map(r => { const o = {}; kopf.forEach((h, i) => o[h] = (r[i] || '').trim()); return o; });
+}
+const spalte = (o, ...namen) => { for (const n of namen) if (o[n] != null && o[n] !== '') return o[n]; return ''; };
+
+/* ====================== Speicher im Browser (nur Ordner-Handle und Gerätemodus) ====================== */
+const IDB = {
+  db(){ return new Promise((ok, nein) => { const r = indexedDB.open('finanzkit', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => ok(r.result); r.onerror = () => nein(r.error); }); },
+  async get(k){ try{ const d = await this.db(); return await new Promise(ok => { const r = d.transaction('kv').objectStore('kv').get(k); r.onsuccess = () => ok(r.result); r.onerror = () => ok(undefined); }); }catch(e){ return undefined; } },
+  async set(k, v){ try{ const d = await this.db(); await new Promise(ok => { const t = d.transaction('kv', 'readwrite'); t.objectStore('kv').put(v, k); t.oncomplete = ok; t.onerror = ok; }); }catch(e){} }
+};
+const lsGet = k => { try{ return localStorage.getItem(k); }catch(e){ return null; } };
+const lsSet = (k, v) => { try{ localStorage.setItem(k, v); }catch(e){} };
+
+/* ====================== Zustand ====================== */
+const Z = {
+  quelle: null,          // { art: 'ordner', root } | { art: 'dateien' }
+  name: '',
+  dateien: { susa: [], opos: [], bank: [] },
+  einstellungen: { ...STANDARD },
+  einstellungenGefunden: false,
+  monate: [],            // sortiert
+  susa: new Map(),       // monat -> Map(konto -> {label, sm, hm, sk, hk, saldo})
+  susaQuelle: new Map(), // monat -> Dateiname
+  opos: new Map(),       // monat -> { stand, posten: [] }
+  bank: new Map(),       // monat -> Summe laut Kontoauszug
+  pruefung: [],          // { art: 'ok'|'warn'|'fehler', text }
+  zeitraum: lsGet('finanzkit.zeitraum') || 'l12',
+  ansicht: lsGet('finanzkit.ansicht') || 'monat',
+  offen: new Set()
+};
+const lesemodus = () => lsGet('finanzkit.geraet') === 'lesen';
+
+/* ====================== Ordner öffnen ====================== */
+const kannOrdner = typeof window.showDirectoryPicker === 'function';
+async function unterordner(dir, name){ try{ return await dir.getDirectoryHandle(name); }catch(e){ return null; } }
+async function wurzelFinden(dir){
+  // „Finanzen“ gewählt → Unterordner „finanzkit“; „finanzkit“ selbst gewählt → direkt
+  const fk = await unterordner(dir, 'finanzkit'); if (fk) return fk;
+  if (await unterordner(dir, 'susa')) return dir;
+  return null;
+}
+async function ordnerWaehlen(){
+  try{
+    const dir = await window.showDirectoryPicker({ id: 'finanzkit', mode: lesemodus() ? 'read' : 'readwrite' });
+    const root = await wurzelFinden(dir);
+    if (!root){ startFehler('In „' + dir.name + '“ fehlt der Unterordner „finanzkit“ (bzw. „susa“). Bitte den Ordner „Finanzen“ wählen.'); return; }
+    await IDB.set('ordner', dir);
+    await laden({ art: 'ordner', root }, dir.name);
+  }catch(e){ if (e && e.name !== 'AbortError') startFehler('Ordner konnte nicht geöffnet werden: ' + e.message); }
+}
+async function ordnerWieder(){
+  const dir = await IDB.get('ordner'); if (!dir) return;
+  try{
+    const mode = lesemodus() ? 'read' : 'readwrite';
+    if ((await dir.queryPermission({ mode })) !== 'granted' && (await dir.requestPermission({ mode })) !== 'granted'){ startFehler('Zugriff nicht erlaubt.'); return; }
+    const root = await wurzelFinden(dir); if (!root){ startFehler('Unterordner „finanzkit“ nicht gefunden.'); return; }
+    await laden({ art: 'ordner', root }, dir.name);
+  }catch(e){ startFehler('Ordner nicht erreichbar: ' + e.message); }
+}
+function startFehler(t){ $('#startFehler').textContent = t; }
+
+async function dateienAus(root, unter){
+  const d = await unterordner(root, unter); const liste = [];
+  if (!d) return liste;
+  for await (const [n, h] of d.entries()){
+    if (h.kind !== 'file' || !/\.csv$/i.test(n)) continue;
+    const f = await h.getFile(); liste.push({ name: unter + '/' + n, text: await f.text(), geaendert: f.lastModified });
+  }
+  return liste;
+}
+async function laden(quelle, name){
+  Z.quelle = quelle; Z.name = name || '';
+  if (quelle.art === 'ordner'){
+    const r = quelle.root;
+    Z.dateien = { susa: await dateienAus(r, 'susa'), opos: await dateienAus(r, 'opos'), bank: await dateienAus(r, 'bank') };
+    Z.einstellungen = { ...STANDARD }; Z.einstellungenGefunden = false;
+    try{ const f = await (await r.getFileHandle('einstellungen.json')).getFile(); Object.assign(Z.einstellungen, JSON.parse(await f.text())); Z.einstellungenGefunden = true; }catch(e){}
+  }
+  aufbereiten();
+  if (!Z.monate.length){ zeigeStart(); startFehler('Keine Monatsdaten gefunden: im Ordner „susa“ liegen keine lesbaren CSV-Dateien.'); return; }
+  zeigeApp();
+}
+async function dateienHochgeladen(liste){
+  const z = { susa: [], opos: [], bank: [] }; let einst = null;
+  for (const f of liste){
+    const p = (f.webkitRelativePath || f.name).replace(/\\/g, '/'); const teile = p.split('/');
+    const n = teile[teile.length - 1], ordner = (teile[teile.length - 2] || '').toLowerCase();
+    if (n === 'einstellungen.json'){ try{ einst = JSON.parse(await f.text()); }catch(e){} continue; }
+    if (!/\.csv$/i.test(n) || !z[ordner]) continue;
+    z[ordner].push({ name: ordner + '/' + n, text: await f.text(), geaendert: f.lastModified });
+  }
+  Z.dateien = z; Z.einstellungen = { ...STANDARD, ...(einst || {}) }; Z.einstellungenGefunden = !!einst;
+  await laden({ art: 'dateien' }, 'hochgeladen (nur ansehen)');
+}
+
+/* ====================== Daten aufbereiten ====================== */
+function aufbereiten(){
+  Z.susa = new Map(); Z.susaQuelle = new Map(); Z.opos = new Map(); Z.bank = new Map(); Z.pruefung = [];
+  const P = (art, text) => Z.pruefung.push({ art, text });
+  // SuSa: je Monat die genaueste Datei (JJJJ-MM.csv vor Sammeldatei, sonst die neueste)
+  const kandidaten = new Map();
+  for (const d of Z.dateien.susa){
+    const zeilen = csvLesen(d.text); const proMonat = new Map();
+    for (const r of zeilen){
+      const m = spalte(r, 'monat'); const k = parseInt(spalte(r, 'konto'), 10);
+      if (!/^\d{4}-\d{2}$/.test(m) || !isFinite(k)) continue;
+      if (!proMonat.has(m)) proMonat.set(m, new Map());
+      const sh = spalte(r, 's_h', 'sh', 's/h').toUpperCase();
+      const saldo = zahl(spalte(r, 'saldo'));
+      proMonat.get(m).set(k, { label: spalte(r, 'bezeichnung', 'beschriftung'), sm: zahl(spalte(r, 'soll_monat')), hm: zahl(spalte(r, 'haben_monat')), sk: zahl(spalte(r, 'soll_kum')), hk: zahl(spalte(r, 'haben_kum')), saldo: sh === 'H' ? -saldo : saldo });
+    }
+    if (!proMonat.size){ P('warn', d.name + ': keine Zeilen im erwarteten Aufbau (Monat;Konto;Bezeichnung;Soll_Monat;Haben_Monat;…).'); continue; }
+    const genau = d.name.split('/').pop().replace(/\.csv$/i, '');
+    for (const [m, konten] of proMonat){
+      const rang = (genau === m ? 0 : 1) * 1e6 + proMonat.size;
+      const alt = kandidaten.get(m);
+      if (!alt || rang < alt.rang || (rang === alt.rang && d.geaendert > alt.geaendert)){
+        if (alt) P('ok', mLang(m) + ': ' + d.name + ' statt ' + alt.name + ' verwendet.');
+        kandidaten.set(m, { rang, geaendert: d.geaendert, name: d.name, konten });
+      }
+    }
+  }
+  Z.monate = [...kandidaten.keys()].sort();
+  for (const m of Z.monate){ Z.susa.set(m, kandidaten.get(m).konten); Z.susaQuelle.set(m, kandidaten.get(m).name); }
+  if (!Z.monate.length) return;
+
+  // Lücken
+  for (let m = Z.monate[0]; m < Z.monate[Z.monate.length - 1]; m = mPlus(m, 1)) if (!Z.susa.has(m)) P('warn', 'Monat ' + mLang(m) + ' fehlt in „susa“.');
+  // Monatswert = Differenz der kumulierten Werte (gleiches Jahr, Vormonat vorhanden)
+  let fehlerKum = 0;
+  for (const m of Z.monate){
+    const vm = mPlus(m, -1); if (vm.slice(0, 4) !== m.slice(0, 4) || !Z.susa.has(vm)) continue;
+    const a = Z.susa.get(m), b = Z.susa.get(vm);
+    for (const [k, v] of a){
+      if (k < 4000 || k > 7999) continue;
+      const w = b.get(k) || { sk: 0, hk: 0 };
+      if (Math.abs((v.sk - v.hk) - (w.sk - w.hk) - (v.sm - v.hm)) > 0.05){ fehlerKum++; if (fehlerKum <= 5) P('warn', mLang(m) + ', Konto ' + k + ': Monatswert passt nicht zur Differenz der kumulierten Werte (rückwirkende Buchung?).'); }
+    }
+  }
+  if (!fehlerKum) P('ok', 'Monatswerte und kumulierte Werte passen in allen Monaten zusammen.');
+  // nicht zugeordnete Erfolgskonten
+  const ohne = new Map();
+  for (const [, konten] of Z.susa) for (const [k, v] of konten) if (k >= 4000 && k <= 7999 && !istUmsatz(k) && !istErtrag(k) && !gruppeVon(k)) ohne.set(k, v.label);
+  if (ohne.size) P('warn', 'Nicht zugeordnete Erfolgskonten: ' + [...ohne].map(([k, l]) => k + ' ' + l).join(', '));
+
+  // OPOS
+  for (const d of Z.dateien.opos){
+    const genau = d.name.split('/').pop().replace(/\.csv$/i, '');
+    const zeilen = csvLesen(d.text); if (!zeilen.length) continue;
+    const proMonat = new Map();
+    for (const r of zeilen){
+      const m = /^\d{4}-\d{2}$/.test(genau) ? genau : spalte(r, 'monat');
+      if (!/^\d{4}-\d{2}$/.test(m)) continue;
+      if (!proMonat.has(m)) proMonat.set(m, { stand: '', posten: [] });
+      const o = proMonat.get(m); const stand = spalte(r, 'stand'); if (stand > o.stand) o.stand = stand;
+      o.posten.push({ seite: /^k/i.test(spalte(r, 'seite')) ? 'K' : 'D', konto: spalte(r, 'konto'), name: spalte(r, 'name'), nr: spalte(r, 'rechnungsnr', 'rechnungs-nr.'), datum: spalte(r, 'datum'), faellig: spalte(r, 'faellig', 'fälligkeit'), offen: zahl(spalte(r, 'offen', 'betrag')) });
+    }
+    for (const [m, o] of proMonat) Z.opos.set(m, o);
+  }
+  for (const [m, o] of Z.opos){
+    const s = Z.susa.get(m); if (!s) continue;
+    const opD = o.posten.filter(p => p.seite === 'D').reduce((a, p) => a + p.offen, 0);
+    let fo = 0; for (const [k, v] of s) if (istFord(k)) fo += v.saldo;
+    if (Math.abs(opD - fo) > 1) P('warn', mLang(m) + ': offene Posten Debitoren (' + eur(opD) + ') ≠ Forderungen laut SuSa (' + eur(fo) + ').');
+  }
+  if (Z.opos.size) P('ok', 'Offene Posten für ' + Z.opos.size + ' Monate geladen.');
+
+  // Bank laut Kontoauszug (optional): Monat;Bank;Saldo
+  for (const d of Z.dateien.bank) for (const r of csvLesen(d.text)){
+    const m = spalte(r, 'monat'); if (!/^\d{4}-\d{2}$/.test(m)) continue;
+    Z.bank.set(m, (Z.bank.get(m) || 0) + zahl(spalte(r, 'saldo')));
+  }
+  if (Z.bank.size) P('ok', 'Kontostände laut Kontoauszug für ' + Z.bank.size + ' Monate – dort statt Buchsaldo verwendet.');
+  if (!Z.einstellungenGefunden) P('warn', 'Noch keine einstellungen.json – es gelten die Standardwerte (Untergrenze 3 Monate Fixkosten).');
+}
+
+/* ====================== Rechnen ====================== */
+function monatswerte(m){
+  const s = Z.susa.get(m); const g = {}; GRUPPEN.forEach(x => g[x.id] = 0);
+  let umsatz = 0, ertrag = 0, bank = 0, ford = 0, verb = 0, darlehen = 0, tilgung = 0, neukredit = 0, entnahmen = 0;
+  const ohneTilg = new Set(String(Z.einstellungen.tilgungOhneKonten || '').split(/[\s,;]+/).filter(Boolean).map(Number));
+  for (const [k, v] of s){
+    const net = v.sm - v.hm;
+    if (istUmsatz(k)) umsatz -= net;
+    else if (istErtrag(k)) ertrag -= net;
+    else { const id = gruppeVon(k); if (id) g[id] += net; }
+    if (istBank(k)) bank += v.saldo;
+    if (istFord(k)) ford += v.saldo;
+    if (istVerb(k)) verb -= v.saldo;
+    if (istDarlehen(k)){ darlehen -= v.saldo; if (!ohneTilg.has(k)){ tilgung += v.sm; neukredit += v.hm; } }
+    if (istEntnahme(k)) entnahmen += net;
+  }
+  const kosten = GRUPPEN.reduce((a, x) => a + g[x.id], 0);
+  const bankBuch = bank;
+  if (Z.bank.has(m)) bank = Z.bank.get(m);
+  return { m, g, umsatz, ertrag, kosten, ergebnis: umsatz + ertrag - kosten, bank, bankBuch, bankQuelle: Z.bank.has(m) ? 'Kontoauszug' : 'Buchsaldo', ford, verb, darlehen, tilgung, neukredit, entnahmen };
+}
+let W = new Map();   // Cache Monatswerte
+function werte(m){ if (!W.has(m)) W.set(m, monatswerte(m)); return W.get(m); }
+
+function zeitraumMonate(z){
+  const alle = Z.monate, letzt = alle[alle.length - 1];
+  if (z === 'l12') return alle.filter(m => m > mPlus(letzt, -12));
+  if (z === 'l6') return alle.filter(m => m > mPlus(letzt, -6));
+  if (z === 'alles') return alle.slice();
+  return alle.filter(m => m.slice(0, 4) === z);
+}
+function vorjahr(monate){ const v = monate.map(m => mPlus(m, -12)); return v.every(m => Z.susa.has(m)) ? v : null; }
+const summe = (monate, f) => monate.reduce((a, m) => a + f(werte(m)), 0);
+
+/* Fixkosten je Monat: Durchschnitt der letzten 12 (vorhandenen) Monate bis zum letzten Monat */
+function fixkosten(){
+  const E = Z.einstellungen, letzt = Z.monate[Z.monate.length - 1];
+  const fenster = Z.monate.filter(m => m > mPlus(letzt, -12)), n = fenster.length;
+  const posten = [];
+  for (const x of GRUPPEN){
+    if (!(x.art === 'fix' || (x.art === 'halbvariabel' && E.reiseAlsFix))) continue;
+    const roh = summe(fenster, w => w.g[x.id]) / n;
+    const neg = fenster.some(m => werte(m).g[x.id] < -0.5);
+    posten.push({ id: x.id, name: x.name, wert: Math.max(0, roh), hinweis: neg ? 'Gutschrift im Zeitraum – Jahresbeträge prüfen' : '' });
+  }
+  if (E.tilgungAlsFix){
+    const t = tilgungRegel(fenster);
+    posten.push({ id: 'tilgung', name: 'Tilgung Darlehen (regelmäßig)', wert: t.summe, hinweis: t.konten.length ? t.konten.map(k => k.konto + ': ' + eur(k.wert)).join(' · ') : '', info: true });
+  }
+  let entn = null;
+  if (E.unternehmerlohnMonat != null && E.unternehmerlohnMonat !== '') entn = { id: 'entn', name: 'Unternehmerlohn (fest)', wert: +E.unternehmerlohnMonat, hinweis: '' };
+  else if (E.entnahmenInUntergrenze) entn = { id: 'entn', name: 'Partner-Entnahmen (Ø)', wert: summe(fenster, w => w.entnahmen) / n, hinweis: '' };
+  if (entn) posten.push(entn);
+  const gesamt = posten.reduce((a, p) => a + p.wert, 0);
+  return { fenster, n, posten, gesamt, untergrenze: gesamt * (+E.untergrenzeMonate || 3) };
+}
+
+/* Regelmäßige Tilgung: je Darlehenskonto der Median der monatlichen Soll-Buchungen im Fenster – Einmalzahlungen zählen nicht */
+function tilgungRegel(fenster){
+  const ohne = new Set(String(Z.einstellungen.tilgungOhneKonten || '').split(/[\s,;]+/).filter(Boolean).map(Number));
+  const konten = new Set(); fenster.forEach(m => { for (const k of Z.susa.get(m).keys()) if (istDarlehen(k) && !ohne.has(k)) konten.add(k); });
+  const liste = [], einmal = [];
+  for (const k of konten){
+    const reihe = fenster.map(m => { const e = Z.susa.get(m).get(k); return e ? e.sm : 0; });
+    const med = median(reihe);
+    if (med > 0.5) liste.push({ konto: k, wert: med });
+    reihe.forEach((v, i) => { if (v > Math.max(3 * med, 5000)) einmal.push({ konto: k, m: fenster[i], wert: v, label: Z.susa.get(fenster[i]).get(k).label }); });
+  }
+  liste.sort((a, b) => a.konto - b.konto);
+  return { summe: liste.reduce((a, x) => a + x.wert, 0), konten: liste, einmal };
+}
+
+/* Auffälligkeiten: Monat weicht deutlich vom Median des Fensters ab; Darlehenskonto im Soll */
+function auffaelligkeiten(monate){
+  const liste = [], zellen = new Set();
+  const fenster = Z.monate.filter(m => m > mPlus(Z.monate[Z.monate.length - 1], -12));
+  for (const x of GRUPPEN){
+    if (!['fix'].includes(x.art)) continue;
+    const med = median(fenster.map(m => werte(m).g[x.id]));
+    if (Math.abs(med) < 1000) continue;
+    for (const m of monate){
+      const v = werte(m).g[x.id], d = v - med;
+      if (Math.abs(d) > 0.30 * Math.abs(med) && Math.abs(d) > 3000){
+        zellen.add(x.id + '|' + m);
+        liste.push({ m, text: '<b>' + esc(x.name) + ' ' + mKurz(m) + ':</b> ' + eur(v) + ' – üblich ≈ ' + eur(med) + ' (' + (d > 0 ? '+' : '') + pct(d / med) + ')' });
+      }
+    }
+  }
+  const letzt = Z.monate[Z.monate.length - 1], s = Z.susa.get(letzt);
+  for (const [k, v] of s) if (istDarlehen(k) && v.saldo > 1) liste.push({ m: letzt, text: '<b>Darlehenskonto ' + k + '</b> (' + esc(v.label) + ') steht im Soll (' + eur(v.saldo) + ') – mehr gezahlt als geliehen? Zählt weiter als Tilgung; falls falsch, unter Einstellungen ausnehmen.' });
+  tilgungRegel(fenster).einmal.filter(e => monate.includes(e.m)).forEach(e => liste.push({ m: e.m, text: '<b>Einmalzahlung Darlehen ' + e.konto + '</b> (' + esc(e.label) + ') ' + mKurz(e.m) + ': ' + eur(e.wert) + ' – nicht in den Fixkosten, aber Geld ist abgeflossen.' }));
+  const fk = fixkosten(), w = werte(letzt);
+  if (w.bank < fk.untergrenze) liste.push({ m: letzt, krit: true, text: '<b>Unter der Untergrenze:</b> Bank + Kasse ' + mKurz(letzt) + ' ' + eur(w.bank) + ' gegenüber ' + eur(fk.untergrenze) + ' (' + (Z.einstellungen.untergrenzeMonate || 3) + ' Monate Fixkosten).' });
+  liste.sort((a, b) => (b.krit ? 1 : 0) - (a.krit ? 1 : 0) || b.m.localeCompare(a.m));
+  return { liste, zellen };
+}
+
+/* ====================== Diagramme (SVG, von Hand) ====================== */
+const tip = $('#tip');
+function tipZeigen(ev, titel, zeilen){
+  tip.innerHTML = '<div class="t">' + esc(titel) + '</div>' + zeilen.map(z => '<div class="r"><span>' + (z.farbe ? '<i style="background:' + z.farbe + '"></i>' : '') + esc(z.l) + '</span><span class="num">' + esc(z.w) + '</span></div>').join('');
+  tip.style.display = 'block';
+  const r = tip.getBoundingClientRect(); let x = ev.clientX + 14, y = ev.clientY + 14;
+  if (x + r.width > innerWidth - 8) x = ev.clientX - r.width - 14; if (y + r.height > innerHeight - 8) y = ev.clientY - r.height - 14;
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+}
+const tipWeg = () => tip.style.display = 'none';
+const NS = 'http://www.w3.org/2000/svg';
+const sv = (tag, a) => { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, a[k]); return e; };
+function skala(min, max){
+  if (max <= min) max = min + 1;
+  const roh = (max - min) / 5, p = Math.pow(10, Math.floor(Math.log10(roh))), s = [1, 2, 2.5, 5, 10].map(x => x * p).find(x => x >= roh);
+  const lo = Math.floor(min / s) * s, hi = Math.ceil(max / s) * s, ticks = [];
+  for (let v = lo; v <= hi + s / 2; v += s) ticks.push(v);
+  return { lo, hi, ticks };
+}
+function achsen(svg, B, H, pad, sk, y){
+  for (const t of sk.ticks){
+    const yy = y(t);
+    svg.append(sv('line', { x1: pad.l, x2: B - pad.r, y1: yy, y2: yy, stroke: t === 0 ? 'var(--achse)' : 'var(--grid)', 'stroke-width': 1 }));
+    const tx = sv('text', { x: pad.l - 8, y: yy + 4, 'text-anchor': 'end' }); tx.textContent = teur(t); svg.append(tx);
+  }
+}
+function balken(ziel, labels, reihen, opt){
+  ziel.textContent = '';
+  const B = Math.max(ziel.clientWidth || 700, 320), H = 280, pad = { l: 64, r: 10, t: 10, b: 28 };
+  const alle = reihen.flatMap(r => r.werte), sk = skala(Math.min(0, ...alle), Math.max(0, ...alle));
+  const y = v => pad.t + (H - pad.t - pad.b) * (1 - (v - sk.lo) / (sk.hi - sk.lo));
+  const svg = sv('svg', { viewBox: '0 0 ' + B + ' ' + H, role: 'img', 'aria-label': opt.aria });
+  achsen(svg, B, H, pad, sk, y);
+  const n = labels.length, slot = (B - pad.l - pad.r) / n, gap = 2, bw = Math.min(28, (slot * 0.72 - gap * (reihen.length - 1)) / reihen.length);
+  labels.forEach((lab, i) => {
+    const x0 = pad.l + slot * i + (slot - (bw * reihen.length + gap * (reihen.length - 1))) / 2;
+    reihen.forEach((r, j) => {
+      const v = r.werte[i], y0 = y(0), y1 = y(v), h = Math.abs(y1 - y0), top = Math.min(y0, y1), rr = Math.min(4, bw / 2, h);
+      const x = x0 + j * (bw + gap);
+      // oben abgerundet, an der Nulllinie gerade
+      const d = v >= 0 ? `M${x},${y0}V${top + rr}Q${x},${top} ${x + rr},${top}H${x + bw - rr}Q${x + bw},${top} ${x + bw},${top + rr}V${y0}Z`
+                       : `M${x},${y0}V${top + h - rr}Q${x},${top + h} ${x + rr},${top + h}H${x + bw - rr}Q${x + bw},${top + h} ${x + bw},${top + h - rr}V${y0}Z`;
+      svg.append(sv('path', { d, fill: r.farbe }));
+    });
+    if (n <= 13 || i % Math.ceil(n / 12) === 0){ const t = sv('text', { x: pad.l + slot * i + slot / 2, y: H - 8, 'text-anchor': 'middle' }); t.textContent = lab; svg.append(t); }
+    const hit = sv('rect', { x: pad.l + slot * i, y: pad.t, width: slot, height: H - pad.t - pad.b, fill: 'transparent' });
+    hit.addEventListener('mousemove', ev => tipZeigen(ev, opt.titel ? opt.titel(i) : lab, opt.zeilen(i)));
+    hit.addEventListener('mouseleave', tipWeg);
+    svg.append(hit);
+  });
+  ziel.append(svg);
+}
+function linien(ziel, labels, reihen, opt){
+  ziel.textContent = '';
+  const B = Math.max(ziel.clientWidth || 500, 300), H = 280, pad = { l: 64, r: 12, t: 12, b: 28 };
+  const alle = reihen.flatMap(r => r.werte).concat(opt.referenz != null ? [opt.referenz] : []);
+  const sk = skala(Math.min(0, ...alle), Math.max(...alle));
+  const y = v => pad.t + (H - pad.t - pad.b) * (1 - (v - sk.lo) / (sk.hi - sk.lo));
+  const n = labels.length, x = i => pad.l + (n === 1 ? (B - pad.l - pad.r) / 2 : (B - pad.l - pad.r) * i / (n - 1));
+  const svg = sv('svg', { viewBox: '0 0 ' + B + ' ' + H, role: 'img', 'aria-label': opt.aria });
+  achsen(svg, B, H, pad, sk, y);
+  if (opt.referenz != null){
+    svg.append(sv('line', { x1: pad.l, x2: B - pad.r, y1: y(opt.referenz), y2: y(opt.referenz), stroke: 'var(--krit)', 'stroke-width': 2, 'stroke-dasharray': '6 5' }));
+    const t = sv('text', { x: B - pad.r, y: y(opt.referenz) - 6, 'text-anchor': 'end', style: 'fill:var(--krit);font-weight:600' }); t.textContent = 'Untergrenze ' + teur(opt.referenz); svg.append(t);
+  }
+  reihen.forEach(r => {
+    svg.append(sv('path', { d: r.werte.map((v, i) => (i ? 'L' : 'M') + x(i) + ',' + y(v)).join(''), fill: 'none', stroke: r.farbe, 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+    const i = n - 1; svg.append(sv('circle', { cx: x(i), cy: y(r.werte[i]), r: 4, fill: r.farbe, stroke: '#fff', 'stroke-width': 2 }));
+  });
+  labels.forEach((lab, i) => { if (n <= 13 || i % Math.ceil(n / 12) === 0){ const t = sv('text', { x: x(i), y: H - 8, 'text-anchor': 'middle' }); t.textContent = lab; svg.append(t); } });
+  const fad = sv('line', { y1: pad.t, y2: H - pad.b, stroke: 'var(--achse)', 'stroke-width': 1, visibility: 'hidden' }); svg.append(fad);
+  const hit = sv('rect', { x: pad.l, y: pad.t, width: B - pad.l - pad.r, height: H - pad.t - pad.b, fill: 'transparent' });
+  hit.addEventListener('mousemove', ev => {
+    const r = svg.getBoundingClientRect(), px = (ev.clientX - r.left) * B / r.width;
+    const i = Math.max(0, Math.min(n - 1, Math.round((px - pad.l) / ((B - pad.l - pad.r) / Math.max(1, n - 1)))));
+    fad.setAttribute('x1', x(i)); fad.setAttribute('x2', x(i)); fad.setAttribute('visibility', 'visible');
+    tipZeigen(ev, labels[i], opt.zeilen(i));
+  });
+  hit.addEventListener('mouseleave', () => { tipWeg(); fad.setAttribute('visibility', 'hidden'); });
+  svg.append(hit);
+  ziel.append(svg);
+}
+
+/* ====================== Zeichnen ====================== */
+function zeigeStart(){
+  $('#start').hidden = false; $('#app').hidden = true; $('#btnNeuLaden').hidden = true;
+  $('#kopfStand').textContent = 'Kein Ordner geöffnet';
+  if (!kannOrdner){ $('#btnOrdner').disabled = true; $('#btnOrdner').title = 'Dieser Browser kann keine Ordner öffnen – bitte Edge oder Chrome nehmen'; }
+  IDB.get('ordner').then(d => { if (d && kannOrdner){ const b = $('#btnWieder'); b.hidden = false; b.textContent = '„' + d.name + '“ wieder öffnen'; } });
+}
+function zeigeApp(){
+  W = new Map();
+  $('#start').hidden = true; $('#app').hidden = false; $('#btnNeuLaden').hidden = Z.quelle.art !== 'ordner';
+  const letzt = Z.monate[Z.monate.length - 1];
+  $('#kopfStand').innerHTML = 'Stand <b>' + mLang(letzt) + '</b> · ' + Z.monate.length + ' Monate ab ' + mLang(Z.monate[0]) + ' · Ordner „' + esc(Z.name) + '“';
+  segmente();
+  zeichneAlles();
+}
+function segmente(){
+  const jahre = [...new Set(Z.monate.map(m => m.slice(0, 4)))].reverse();
+  const opts = [['l12', 'Letzte 12 Monate'], ['l6', 'Letzte 6 Monate'], ...jahre.map(j => [j, j]), ['alles', 'Alles']];
+  if (!opts.some(o => o[0] === Z.zeitraum)) Z.zeitraum = 'l12';
+  const s = $('#segZeitraum'); s.textContent = '';
+  opts.forEach(([k, t]) => s.append(el('button', { type: 'button', 'aria-pressed': String(Z.zeitraum === k), text: t, onclick: () => { Z.zeitraum = k; lsSet('finanzkit.zeitraum', k); segmente(); zeichneAlles(); } })));
+  const a = $('#segAnsicht'); a.textContent = '';
+  [['monat', 'Monate'], ['quartal', 'Quartale']].forEach(([k, t]) => a.append(el('button', { type: 'button', 'aria-pressed': String(Z.ansicht === k), text: t, onclick: () => { Z.ansicht = k; lsSet('finanzkit.ansicht', k); segmente(); zeichneAlles(); } })));
+}
+function zeichneAlles(){
+  const monate = zeitraumMonate(Z.zeitraum), vj = vorjahr(monate), E = Z.einstellungen;
+  const letzt = Z.monate[Z.monate.length - 1], wl = werte(letzt), fk = fixkosten(), auf = auffaelligkeiten(monate);
+  const zr = mKurz(monate[0]) + ' – ' + mKurz(monate[monate.length - 1]);
+
+  // Hinweise oben
+  const hw = $('#hinweise'); hw.textContent = '';
+  if (lesemodus()) hw.append(el('p', { class: 'hinweis', style: 'margin:0 0 12px', html: '<b>Lesemodus</b> (Laptop): Ansehen ja, Einstellungen speichern nur am Terminal – so entstehen keine OneDrive-Konfliktkopien.' }));
+  if (Z.quelle.art === 'dateien') hw.append(el('p', { class: 'hinweis', style: 'margin:0 0 12px', html: 'Ordner nur hochgeladen: <b>nichts wird gespeichert</b>. Zum Arbeiten den Ordner über „Ordner öffnen“ wählen.' }));
+
+  // Kennzahlen
+  const U = summe(monate, w => w.umsatz), K = summe(monate, w => w.kosten), ERG = summe(monate, w => w.ergebnis), LAB = summe(monate, w => w.g.labor), PERS = summe(monate, w => w.g.personal), ENT = summe(monate, w => w.entnahmen);
+  const delta = (jetzt, f, besserHoch = true) => {
+    if (!vj) return 'kein Vorjahr geladen';
+    const alt = summe(vj, f); if (!alt) return '';
+    const d = (jetzt - alt) / Math.abs(alt), gut = besserHoch ? d >= 0 : d <= 0;
+    return '<span class="' + (gut ? 'auf' : 'ab') + '">' + (d >= 0 ? '▲ +' : '▼ ') + pct(d) + '</span> ggü. Vorjahr (' + eur(alt) + ')';
+  };
+  const kp = $('#kpis'); kp.textContent = '';
+  const kpi = (l, w, s, alarm) => kp.append(el('div', { class: 'kpi' + (alarm ? ' alarm' : '') }, el('div', { class: 'l', text: l }), el('div', { class: 'w num', text: w }), el('div', { class: 's', html: s || '' })));
+  kpi('Umsatz ' + zr, eur(U), delta(U, w => w.umsatz));
+  kpi('Kosten ' + zr, eur(K), delta(K, w => w.kosten, false));
+  kpi('Ergebnis (vor Partner-Entnahmen)', eur(ERG), 'Partner-Entnahmen im Zeitraum: ' + eur(ENT));
+  kpi('Laborquote', pct(U ? LAB / U : null), 'Labor ' + eur(LAB) + ' · Personal ' + pct(U ? PERS / U : null) + ' vom Umsatz');
+  kpi('Fixkosten je Monat', eur(fk.gesamt), 'Ø der letzten ' + fk.n + ' Monate · Untergrenze ' + eur(fk.untergrenze));
+  const unter = wl.bank < fk.untergrenze;
+  kpi('Bank + Kasse ' + mKurz(letzt), eur(wl.bank), (unter ? '⚠ <b>unter der Untergrenze</b> · ' : '✓ über der Untergrenze · ') + 'reicht für ' + nf1.format(fk.gesamt ? Math.max(0, wl.bank) / fk.gesamt : 0) + ' Monate Fixkosten' + (wl.bankQuelle === 'Buchsaldo' ? ' (Buchsaldo)' : ''), unter);
+
+  // Umsatz/Kosten
+  const gruppen = gruppieren(monate);
+  $('#ukUnter').textContent = zr + ' · Kosten = alle Aufwandskonten (Labor, Abschreibungen, Zinsen, neutraler Aufwand), ohne Partner-Entnahmen. Ergebnis = wie „Vorläufiges Ergebnis“ der BWA.';
+  balken($('#chUK'), gruppen.map(g => g.label), [
+    { name: 'Umsatz', farbe: 'var(--s-umsatz)', werte: gruppen.map(g => summe(g.monate, w => w.umsatz)) },
+    { name: 'Kosten', farbe: 'var(--s-kosten)', werte: gruppen.map(g => summe(g.monate, w => w.kosten)) }
+  ], { aria: 'Umsatz und Kosten je ' + (Z.ansicht === 'quartal' ? 'Quartal' : 'Monat'),
+       titel: i => gruppen[i].lang,
+       zeilen: i => { const ms = gruppen[i].monate, u = summe(ms, w => w.umsatz), k = summe(ms, w => w.kosten), l = summe(ms, w => w.g.labor);
+         return [{ l: 'Umsatz', w: eur(u), farbe: '#2a78d6' }, { l: 'Kosten', w: eur(k), farbe: '#eb6834' }, { l: '  davon Labor', w: eur(l) }, { l: 'Ergebnis', w: eur(summe(ms, w => w.ergebnis)) }, { l: 'Partner-Entnahmen', w: eur(summe(ms, w => w.entnahmen)) }]; } });
+
+  // Liquidität (immer Monatsenden)
+  $('#liqUnter').textContent = 'Monatsende laut ' + (Z.bank.size ? 'Kontoauszug, wo vorhanden, sonst Buchhaltung' : 'Buchhaltung (Buchsaldo der Bank- und Kassenkonten)') + ' · Untergrenze = ' + (E.untergrenzeMonate || 3) + ' × Fixkosten je Monat.';
+  linien($('#chLiq'), monate.map(mKurz), [
+    { farbe: 'var(--s-umsatz)', werte: monate.map(m => werte(m).bank) },
+    { farbe: 'var(--s-zweit)', werte: monate.map(m => werte(m).bank + werte(m).ford) }
+  ], { aria: 'Bank und Kasse je Monatsende mit Untergrenze', referenz: fk.untergrenze,
+       zeilen: i => { const w = werte(monate[i]); return [{ l: 'Bank + Kasse', w: eur(w.bank), farbe: '#2a78d6' }, { l: '+ Forderungen', w: eur(w.bank + w.ford), farbe: '#1baf7a' }, { l: 'Verbindlichkeiten L+L', w: eur(w.verb) }, { l: 'Darlehen (Rest)', w: eur(w.darlehen) }, { l: 'Untergrenze', w: eur(fk.untergrenze) }, { l: 'Quelle Bank', w: w.bankQuelle }]; } });
+
+  // Fixkosten
+  $('#fixUnter').textContent = 'Ø ' + mKurz(fk.fenster[0]) + ' – ' + mKurz(fk.fenster[fk.fenster.length - 1]) + ' · ' + (E.untergrenzeMonate || 3) + ' Monate = ' + eur(fk.untergrenze);
+  const fl = $('#fixListe'); fl.textContent = '';
+  const ft = el('table', { class: 'links' }, el('thead', {}, el('tr', {}, el('th', { text: 'Posten' }), el('th', { class: 'num', text: '€ / Monat' }))));
+  const fb = el('tbody'); fk.posten.forEach(p => fb.append(el('tr', {}, el('td', {}, p.name, p.hinweis ? el('div', { class: 'leer', style: 'font-size:11.5px', text: (p.info ? 'Konten ' : '⚠ ') + p.hinweis }) : null), el('td', { class: 'num', text: eur(p.wert) }))));
+  fb.append(el('tr', { class: 'summe' }, el('td', { text: 'Fixkosten je Monat' }), el('td', { class: 'num', text: eur(fk.gesamt) })));
+  ft.append(fb); fl.append(el('div', { class: 'tabwrap' }, ft));
+  fl.append(el('p', { class: 'leer', style: 'font-size:12px;margin:8px 0 0', text: (E.entnahmenInUntergrenze || E.unternehmerlohnMonat ? '' : 'Ohne Partner-Entnahmen. ') + (E.reiseAlsFix ? '' : 'Reise/km-Geld zählt als variabel. ') + 'Labor zählt als variabel. Ändern unter Mehr › Einstellungen.' }));
+
+  // OPOS
+  opos();
+
+  // Auffälligkeiten
+  const al = $('#auffListe'); al.textContent = '';
+  if (!auf.liste.length) al.append(el('li', { class: 'leer', text: 'Nichts Auffälliges im Zeitraum.' }));
+  auf.liste.slice(0, 12).forEach(a => al.append(el('li', { html: (a.krit ? '⚠ ' : '') + a.text, style: a.krit ? 'color:var(--krit)' : null })));
+  if (auf.liste.length > 12) al.append(el('li', { class: 'leer', text: '… und ' + (auf.liste.length - 12) + ' weitere (gelb in der Tabelle).' }));
+
+  // Platzhalter
+  $('#kundeLinie').textContent = E.kundenanteilMax ? E.kundenanteilMax + ' %' : 'noch offen';
+  const sh = $('#stundensatz'); sh.textContent = '';
+  const kostenL12 = summe(fk.fenster, w => w.kosten - w.g.labor - w.g.material) * 12 / fk.n;
+  if (E.produktiveStundenJahr) sh.append(el('p', { html: '<b>Kostensatz je produktive Stunde:</b> ' + eur(kostenL12 / E.produktiveStundenJahr) + ' (Kosten ohne Labor/Material, aufs Jahr gerechnet ' + eur(kostenL12) + ' ÷ ' + nf0.format(E.produktiveStundenJahr) + ' h – Stunden geschätzt, bis BelegKit-Daten da sind).' }));
+  else sh.append(el('p', { html: 'Vorab: Unter Einstellungen „produktive Stunden je Jahr“ schätzen → FinanzKit zeigt den <b>Kostensatz je Stunde</b> (Kosten ohne Labor/Material ÷ Stunden).' }));
+
+  // Tabelle
+  tabelle(gruppen, auf.zellen);
+}
+function gruppieren(monate){
+  if (Z.ansicht !== 'quartal') return monate.map(m => ({ label: mKurz(m), lang: mLang(m), monate: [m] }));
+  const q = new Map(); monate.forEach(m => { const k = quartal(m); if (!q.has(k)) q.set(k, []); q.get(k).push(m); });
+  return [...q].map(([k, ms]) => ({ label: k.slice(5) + ' ' + k.slice(2, 4) + (ms.length < 3 ? '*' : ''), lang: k.slice(5) + ' ' + k.slice(0, 4) + (ms.length < 3 ? ' (nur ' + ms.map(mKurz).join(', ') + ')' : ''), monate: ms }));
+}
+function opos(){
+  const ms = [...Z.opos.keys()].sort(), m = ms[ms.length - 1];
+  const ch = $('#chOP'), li = $('#opListe'); ch.textContent = ''; li.textContent = '';
+  if (!m){ $('#opUnter').textContent = 'Keine OPOS-Dateien im Ordner „opos“.'; return; }
+  const o = Z.opos.get(m), stand = o.stand || (m + '-28');
+  const tage = p => Math.round((Date.parse(stand) - Date.parse(p.faellig || p.datum || stand)) / 864e5);
+  const D = o.posten.filter(p => p.seite === 'D' && p.offen > 0.005), K = o.posten.filter(p => p.seite === 'K' && p.offen > 0.005);
+  const stufen = [['bis 30 Tage', 0, 30], ['31–60 Tage', 31, 60], ['61–90 Tage', 61, 90], ['über 90 Tage', 91, 1e9]];
+  const sum = stufen.map(([n, a, b]) => ({ n, w: D.filter(p => { const t = Math.max(0, tage(p)); return t >= a && t <= b; }).reduce((s, p) => s + p.offen, 0) }));
+  const ges = sum.reduce((a, s) => a + s.w, 0);
+  const gutschr = o.posten.filter(p => p.seite === 'D' && p.offen < -0.005).reduce((a, p) => a + p.offen, 0);
+  $('#opUnter').textContent = 'OPOS ' + mLang(m) + ', Stand ' + datumDe(stand) + ' · offene Rechnungen ' + eur(ges) + ' (Alter ab Fälligkeit)' + (gutschr ? ' · dazu Gutschriften/Überzahlungen ' + eur(gutschr) : '');
+  // waagrechte Balken
+  const B = Math.max(ch.clientWidth || 380, 280), zeile = 30, H = stufen.length * zeile + 4, lw = 92, rw = 92, max = Math.max(...sum.map(s => s.w), 1);
+  const svg = sv('svg', { viewBox: '0 0 ' + B + ' ' + H, role: 'img', 'aria-label': 'Offene Forderungen nach Alter' });
+  sum.forEach((s, i) => {
+    const y = i * zeile + 4, w = (B - lw - rw) * s.w / max;
+    const t = sv('text', { x: 0, y: y + 15 }); t.textContent = s.n; svg.append(t);
+    svg.append(sv('rect', { x: lw, y, width: Math.max(w, s.w ? 2 : 0), height: 20, rx: 4, fill: i === 3 ? '#ec835a' : '#2a78d6' }));
+    const v = sv('text', { x: lw + w + 6, y: y + 15, style: 'fill:var(--text-2)' }); v.textContent = eur(s.w) + (ges ? ' · ' + pct(s.w / ges) : ''); svg.append(v);
+  });
+  ch.append(svg);
+  // größte offene Posten
+  const top = (liste, n) => { const g = new Map(); liste.forEach(p => g.set(p.name, (g.get(p.name) || 0) + p.offen)); return [...g].sort((a, b) => b[1] - a[1]).slice(0, n); };
+  const t = el('table', { class: 'links', style: 'margin-top:10px' }, el('thead', {}, el('tr', {}, el('th', { text: 'Größte offene Posten' }), el('th', { class: 'num', text: '€' }))));
+  const tb = el('tbody');
+  tb.append(el('tr', { class: 'summe' }, el('td', { text: 'Kunden (Debitoren)' }), el('td', { class: 'num', text: eur(o.posten.filter(p => p.seite === 'D').reduce((a, p) => a + p.offen, 0)) })));
+  top(D, 4).forEach(([n, w]) => tb.append(el('tr', {}, el('td', { text: n }), el('td', { class: 'num', text: eur(w) }))));
+  tb.append(el('tr', { class: 'summe' }, el('td', { text: 'Lieferanten / Labore (Kreditoren)' }), el('td', { class: 'num', text: eur(o.posten.filter(p => p.seite === 'K').reduce((a, p) => a + p.offen, 0)) })));
+  top(K, 3).forEach(([n, w]) => tb.append(el('tr', {}, el('td', { text: n }), el('td', { class: 'num', text: eur(w) }))));
+  t.append(tb); li.append(el('div', { class: 'tabwrap' }, t));
+}
+function tabelle(gruppen, auff){
+  const ziel = $('#tabKosten'); ziel.textContent = '';
+  const t = el('table'), kopf = el('tr', {}, el('th', { text: 'Gruppe' }), el('th', { text: 'Art', style: 'text-align:left' }));
+  gruppen.forEach(g => kopf.append(el('th', { text: g.label, title: g.lang })));
+  kopf.append(el('th', { text: 'Summe' }));
+  t.append(el('thead', {}, kopf));
+  const tb = el('tbody'); const alleM = gruppen.flatMap(g => g.monate);
+  const zeile = (name, art, f, cls, aufId) => {
+    const tr = el('tr', { class: cls || '' }, el('td', { html: name }), el('td', { style: 'text-align:left', html: art ? '<span class="tag ' + art + '">' + art + '</span>' : '' }));
+    gruppen.forEach(g => { const v = summe(g.monate, f); const td = el('td', { class: 'num' + (v < -0.5 ? ' neg' : ''), text: eur(v) }); if (aufId && g.monate.some(m => auff.has(aufId + '|' + m))){ td.classList.add('auff'); td.title = 'Weicht deutlich vom üblichen Monat ab'; } tr.append(td); });
+    tr.append(el('td', { class: 'num', style: 'font-weight:600', text: eur(summe(alleM, f)) }));
+    return tr;
+  };
+  tb.append(zeile('<b>Umsatz</b>', '', w => w.umsatz, 'summe'));
+  for (const x of GRUPPEN){
+    const auf = Z.offen.has(x.id);
+    const tr = zeile((auf ? '▾ ' : '▸ ') + esc(x.name), x.art, w => w.g[x.id], 'gruppe', x.id);
+    tr.title = 'Konten ' + x.konten + ' – anklicken für Einzelkonten';
+    tr.addEventListener('click', () => { auf ? Z.offen.delete(x.id) : Z.offen.add(x.id); tabelle(gruppen, auff); });
+    tb.append(tr);
+    if (auf){
+      const konten = new Map();
+      alleM.forEach(m => { for (const [k, v] of Z.susa.get(m)) if (gruppeVon(k) === x.id && !istUmsatz(k) && !istErtrag(k)) konten.set(k, v.label); });
+      [...konten].sort((a, b) => a[0] - b[0]).forEach(([k, l]) => {
+        const tr2 = el('tr', { class: 'konto' }, el('td', { text: k + ' ' + l }), el('td'));
+        gruppen.forEach(g => { const v = g.monate.reduce((a, m) => { const e = Z.susa.get(m).get(k); return a + (e ? e.sm - e.hm : 0); }, 0); tr2.append(el('td', { class: 'num', text: v ? eur(v) : '' })); });
+        tr2.append(el('td', { class: 'num', text: eur(alleM.reduce((a, m) => { const e = Z.susa.get(m).get(k); return a + (e ? e.sm - e.hm : 0); }, 0)) }));
+        tb.append(tr2);
+      });
+      if (!konten.size) tb.append(el('tr', { class: 'konto' }, el('td', { class: 'leer', text: 'keine Buchungen' })));
+    }
+  }
+  tb.append(zeile('<b>Kosten gesamt</b>', '', w => w.kosten, 'summe'));
+  tb.append(zeile('Sonstige Erträge', '', w => w.ertrag));
+  tb.append(zeile('<b>Ergebnis</b> (vor Entnahmen)', '', w => w.ergebnis, 'summe'));
+  tb.append(zeile('Partner-Entnahmen', '', w => w.entnahmen));
+  tb.append(zeile('Tilgung Darlehen (gebucht, inkl. Einmalzahlungen)', '', w => w.tilgung));
+  tb.append(zeile('Neue Darlehen', '', w => w.neukredit));
+  t.append(tb); ziel.append(t);
+}
+
+/* ====================== Dialoge ====================== */
+const dlg = $('#dlg');
+function dialog(titel, inhalt, fuss){ $('#dlgTitel').textContent = titel; const i = $('#dlgInhalt'); i.textContent = ''; i.append(inhalt); const f = $('#dlgFuss'); f.textContent = ''; (fuss || []).forEach(b => f.append(b)); dlg.showModal(); }
+$('#dlgZu').onclick = () => dlg.close();
+
+function einstellungenDialog(){
+  const E = Z.einstellungen, lesen = lesemodus() || Z.quelle.art !== 'ordner';
+  const form = el('div');
+  const feld = (id, label, typ, wert, hilfe) => {
+    const inp = typ === 'checkbox' ? el('input', { type: 'checkbox', id, checked: !!wert, disabled: lesen }) : el('input', { type: typ, id, value: wert == null ? '' : wert, step: 'any', disabled: lesen });
+    form.append(el('div', { class: 'feld' }, el('label', { for: id, text: label }), inp, hilfe ? el('small', { text: hilfe }) : null));
+  };
+  if (lesen) form.append(el('p', { class: 'hinweis', text: lesemodus() ? 'Lesemodus: Ändern nur am Terminal.' : 'Hochgeladener Ordner: nichts kann gespeichert werden.' }));
+  feld('eU', 'Kassen-Untergrenze (Monate Fixkosten)', 'number', E.untergrenzeMonate, 'Entschieden: 3 Monate.');
+  feld('eT', 'Tilgung zählt zu den Fixkosten', 'checkbox', E.tilgungAlsFix);
+  feld('eTo', 'Tilgung: diese Darlehenskonten ausnehmen', 'text', E.tilgungOhneKonten, 'Kontonummern mit Komma, z. B. wenn ein Konto keine echte Tilgung ist.');
+  feld('eR', 'Reise / km-Geld zählt zu den Fixkosten', 'checkbox', E.reiseAlsFix);
+  feld('eE', 'Partner-Entnahmen (Ø) in die Untergrenze', 'checkbox', E.entnahmenInUntergrenze, 'Offene Entscheidung E5.');
+  feld('eL', 'Stattdessen fester Unternehmerlohn (€/Monat)', 'number', E.unternehmerlohnMonat, 'Leer lassen = nicht verwenden. Geht vor dem Ø der Entnahmen.');
+  feld('eK', 'Kundenanteil max. (%)', 'number', E.kundenanteilMax, 'Offene Entscheidung E1 (Vorschlag 25 %).');
+  feld('eM', 'Mindestmarge je Auftrag (%)', 'number', E.mindestmarge, 'Offene Entscheidung E2.');
+  feld('eS', 'Produktive Stunden je Jahr (Schätzung)', 'number', E.produktiveStundenJahr, 'Für den Kostensatz je Stunde, bis BelegKit-Daten da sind.');
+  form.append(el('p', { class: 'leer', style: 'font-size:12px', text: 'Gespeichert in finanzkit/einstellungen.json im Ordner „Finanzen“ – nicht im Browser und nicht im Repo.' }));
+  const speichern = el('button', { class: 'btn haupt', type: 'button', text: 'Speichern', disabled: lesen, onclick: async () => {
+    const n = v => { const s = $('#' + v).value.trim(); return s === '' ? null : zahl(s); };
+    const neu = { ...E, untergrenzeMonate: n('eU') || 3, tilgungAlsFix: $('#eT').checked, tilgungOhneKonten: $('#eTo').value.trim(), reiseAlsFix: $('#eR').checked,
+      entnahmenInUntergrenze: $('#eE').checked, unternehmerlohnMonat: n('eL'), kundenanteilMax: n('eK'), mindestmarge: n('eM'), produktiveStundenJahr: n('eS'), geaendert: new Date().toISOString() };
+    try{
+      const h = await Z.quelle.root.getFileHandle('einstellungen.json', { create: true });
+      const w = await h.createWritable(); await w.write(JSON.stringify(neu, null, 2)); await w.close();
+      Z.einstellungen = neu; Z.einstellungenGefunden = true; aufbereiten(); zeigeApp(); dlg.close(); flash('Einstellungen gespeichert.');
+    }catch(e){ flash('Speichern nicht möglich: ' + e.message); }
+  } });
+  dialog('Einstellungen – rote Linien', form, [speichern]);
+}
+function pruefungDialog(){
+  const d = el('div');
+  d.append(el('h4', { text: 'Prüfungen', style: 'margin:0 0 6px' }));
+  const ul = el('ul', { class: 'auffliste' });
+  Z.pruefung.forEach(p => ul.append(el('li', { text: (p.art === 'ok' ? '✓ ' : '⚠ ') + p.text, style: p.art === 'ok' ? 'color:var(--ok)' : '' })));
+  d.append(ul);
+  d.append(el('h4', { text: 'Monate und Quellen', style: 'margin:16px 0 6px' }));
+  const t = el('table', { class: 'links' }, el('thead', {}, el('tr', {}, el('th', { text: 'Monat' }), el('th', { text: 'SuSa-Datei' }), el('th', { text: 'OPOS' }), el('th', { text: 'Bank' }), el('th', { class: 'num', text: 'Konten' }))));
+  const tb = el('tbody');
+  [...Z.monate].reverse().forEach(m => tb.append(el('tr', {}, el('td', { text: mLang(m) }), el('td', { text: Z.susaQuelle.get(m) }), el('td', { text: Z.opos.has(m) ? 'Stand ' + datumDe(Z.opos.get(m).stand) : '–' }), el('td', { text: Z.bank.has(m) ? 'Kontoauszug' : 'Buchsaldo' }), el('td', { class: 'num', text: Z.susa.get(m).size }))));
+  t.append(tb); d.append(el('div', { class: 'tabwrap' }, t));
+  dialog('Daten & Prüfung', d);
+}
+function zuordnungDialog(){
+  const d = el('div');
+  d.append(el('p', { text: 'So ordnet FinanzKit die Konten (SKR04) zu. Die Regeln stehen in der App; die Zahlen kommen nur aus dem Ordner.' }));
+  const t = el('table', { class: 'links' }, el('thead', {}, el('tr', {}, el('th', { text: 'Gruppe' }), el('th', { text: 'Konten' }), el('th', { text: 'Art' }))));
+  const tb = el('tbody');
+  [['Umsatz', '4000–4799', ''], ['Sonstige Erträge', '4800–4999, 7000–7299', '']].concat(GRUPPEN.map(g => [g.name, g.konten, g.art]))
+    .concat([['Bank + Kasse', '1460–1469, 1600–1899', 'Bestand'], ['Forderungen L+L', '1200–1229', 'Bestand'], ['Verbindlichkeiten L+L', '3300–3349', 'Bestand'], ['Darlehen (Tilgung = Soll-Buchungen)', '3150–3199, 3500–3599', 'Bestand'], ['Partner-Entnahmen', '2100–2199', 'Privat']])
+    .forEach(([a, b, c]) => tb.append(el('tr', {}, el('td', { text: a }), el('td', { text: b }), el('td', { html: c ? '<span class="tag ' + c + '">' + c + '</span>' : '' }))));
+  t.append(tb); d.append(el('div', { class: 'tabwrap' }, t));
+  dialog('Kontenzuordnung', d);
+}
+function versionDialog(){
+  const d = el('div');
+  AENDERUNGEN.forEach(([v, dat, txt]) => d.append(el('div', { style: 'border-left:3px solid var(--sp-app);padding-left:12px;margin-bottom:12px' }, el('div', { style: 'font-size:12px;color:var(--sp-app-dunkel)', text: 'v' + v + ' · ' + dat }), el('div', { text: txt }))));
+  dialog('FinanzKit v' + APP_VERSION, d);
+}
+function geraetFragen(){
+  const d = el('div');
+  d.append(el('p', { text: 'Wo läuft FinanzKit gerade? Eingaben (Einstellungen) nur am Terminal, damit OneDrive keine Konfliktkopien anlegt.' }));
+  const wahl = g => { lsSet('finanzkit.geraet', g); modusPille(); dlg.close(); if (!$('#app').hidden) zeichneAlles(); };
+  dialog('Dieses Gerät', d, [el('button', { class: 'btn', type: 'button', text: 'Laptop – nur lesen', onclick: () => wahl('lesen') }), el('button', { class: 'btn haupt', type: 'button', text: 'Terminal – Eingabe', onclick: () => wahl('eingabe') })]);
+}
+function modusPille(){
+  const p = $('#modusPille'), l = lesemodus();
+  p.textContent = l ? '👁 Lesemodus' : '✎ Terminal (Eingabe)'; p.classList.toggle('lesen', l);
+}
+
+/* ====================== Mehr … ====================== */
+const mehrPop = $('#mehrPop');
+$('#btnMehr').onclick = ev => {
+  ev.stopPropagation();
+  if (mehrPop.style.display === 'block'){ mehrPop.style.display = 'none'; return; }
+  mehrPop.style.display = 'block'; const r = ev.currentTarget.getBoundingClientRect();
+  mehrPop.style.top = (r.bottom + 6) + 'px'; mehrPop.style.left = Math.max(8, r.right - mehrPop.offsetWidth) + 'px';
+};
+document.addEventListener('click', ev => { if (!mehrPop.contains(ev.target)) mehrPop.style.display = 'none'; });
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape') mehrPop.style.display = 'none'; });
+mehrPop.addEventListener('click', ev => {
+  const a = ev.target.closest('[data-a]'); if (!a) return; mehrPop.style.display = 'none';
+  const ohneDaten = !Z.monate.length;
+  ({ einstellungen: () => ohneDaten ? flash('Erst den Ordner öffnen.') : einstellungenDialog(), pruefung: () => ohneDaten ? flash('Erst den Ordner öffnen.') : pruefungDialog(), zuordnung: zuordnungDialog,
+     ordner: () => kannOrdner ? ordnerWaehlen() : flash('Dieser Browser kann keine Ordner öffnen.'), drucken: () => print(), version: versionDialog })[a.dataset.a]();
+});
+
+/* ====================== Start ====================== */
+$('#btnOrdner').onclick = ordnerWaehlen;
+$('#btnWieder').onclick = ordnerWieder;
+$('#inDateien').onchange = ev => { if (ev.target.files.length) dateienHochgeladen([...ev.target.files]); };
+$('#btnNeuLaden').onclick = async () => { if (Z.quelle && Z.quelle.art === 'ordner'){ await laden(Z.quelle, Z.name); flash('Neu eingelesen.'); } };
+$('#modusPille').onclick = geraetFragen;
+let rT = 0; addEventListener('resize', () => { clearTimeout(rT); rT = setTimeout(() => { if (!$('#app').hidden) zeichneAlles(); }, 150); });
+modusPille();
+zeigeStart();
+if (lsGet('finanzkit.geraet') == null) geraetFragen();
+</script>
+</body>
+</html>
