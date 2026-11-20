@@ -146,6 +146,7 @@ dialog .df{display:flex;gap:10px;justify-content:flex-end;padding:12px 18px;bord
 #mehrPop button,#mehrPop a{display:block;width:100%;text-align:left;padding:9px 12px;border:0;background:none;border-radius:7px;cursor:pointer;text-decoration:none;color:inherit}
 #mehrPop button:hover,#mehrPop a:hover{background:#f2ece1}
 #mehrPop hr{border:0;border-top:1px solid var(--line);margin:5px 4px}
+#mehrPop .melden{margin:4px 0 2px;padding:9px 12px;max-width:260px;font-size:13px;color:var(--muted, #6b6b6b);border-top:1px solid var(--line)}
 #flash{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#1b2a35;color:#fff;padding:10px 16px;border-radius:8px;display:none;z-index:70}
 
 @media print{
@@ -172,7 +173,7 @@ dialog .df{display:flex;gap:10px;justify-content:flex-end;padding:12px 18px;bord
   <hr>
   <button type="button" data-a="drucken">🖨 Drucken</button>
   <button type="button" data-a="version">ℹ Version und Änderungen</button>
-  <a href="../rueckmeldung/" target="rueckmeldung" rel="noopener">💬 Rückmeldung ↗</a>
+  <p class="melden">💬 Probleme mit FinanzKit bitte direkt an Basti – <b>ohne Zahlen, ohne Screenshots</b>.</p>
 </div>
 
 <main>
@@ -258,8 +259,9 @@ dialog .df{display:flex;gap:10px;justify-content:flex-end;padding:12px 18px;bord
 
 <script>
 'use strict';
-const APP_VERSION = '0.1.0';
+const APP_VERSION = '0.1.1';
 const AENDERUNGEN = [
+  ['0.1.1', '20.11.2026', 'Kein Link mehr auf die Rückmeldung-App (deren Einträge liegen im Archivordner und sind für alle im Büro lesbar) – Probleme direkt an Basti, ohne Zahlen und Screenshots. Kontostände in „bank“: dieselbe Bank in zwei Dateien (z. B. OneDrive-Konfliktkopie) wird nicht mehr doppelt gezählt; es gilt die neuere Datei, „Daten & Prüfung“ nennt beide.'],
   ['0.1.0', '09.11.2026', 'Erste Fassung: Ordner „Finanzen“ öffnen, SuSa- und OPOS-Monatsdateien einlesen, Umsatz/Kosten, Liquidität mit Untergrenze, Fixkosten, Forderungen nach Alter, Auffälligkeiten, Kostengruppen mit Konten, Lesemodus für den Laptop.']
 ];
 document.title = 'FinanzKit v' + APP_VERSION;
@@ -532,10 +534,19 @@ function aufbereiten(){
   if (Z.opos.size) P('ok', 'Offene Posten für ' + Z.opos.size + ' Monate geladen.');
 
   // Bank laut Kontoauszug (optional): Monat;Bank;Saldo
+  // Je Monat und Bank zählt eine Angabe: mehrere Banken einer Datei werden addiert, dieselbe Bank in zwei Dateien (z. B. eine
+  // OneDrive-Konfliktkopie „kontostaende-LAPTOP.csv“) nicht – es gilt die neueste Datei, die doppelte wird gemeldet (Audit Lauf 3, C23).
+  const saldi = new Map();   // "Monat|Bank" -> { saldo, datei, geaendert }
   for (const d of Z.dateien.bank) for (const r of csvLesen(d.text)){
     const m = spalte(r, 'monat'); if (!/^\d{4}-\d{2}$/.test(m)) continue;
-    Z.bank.set(m, (Z.bank.get(m) || 0) + zahl(spalte(r, 'saldo')));
+    const key = m + '|' + spalte(r, 'bank').trim().toLowerCase(), alt = saldi.get(key), neu = { saldo: zahl(spalte(r, 'saldo')), datei: d.name, geaendert: d.geaendert };
+    if (alt && alt.datei !== d.name){
+      P('warn', mLang(m) + ', ' + (spalte(r, 'bank').trim() || 'Bank ohne Namen') + ': Kontostand in „' + alt.datei + '“ und „' + d.name + '“ – es gilt die neuere Datei. Doppelte Datei (Konfliktkopie?) bitte entfernen.');
+      if (d.geaendert < alt.geaendert) continue;
+    } else if (alt) neu.saldo += alt.saldo;   // dieselbe Bank zweimal in einer Datei: wie bisher addiert
+    saldi.set(key, neu);
   }
+  for (const [key, v] of saldi){ const m = key.slice(0, 7); Z.bank.set(m, (Z.bank.get(m) || 0) + v.saldo); }
   if (Z.bank.size) P('ok', 'Kontostände laut Kontoauszug für ' + Z.bank.size + ' Monate – dort statt Buchsaldo verwendet.');
   if (!Z.einstellungenGefunden) P('warn', 'Noch keine einstellungen.json – es gelten die Standardwerte (Untergrenze 3 Monate Fixkosten).');
 }
