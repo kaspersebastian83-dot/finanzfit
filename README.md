@@ -2,7 +2,7 @@
 
 Finanz-Dashboard des Büros – Teil der Büro-App-Suite **Spektron**, aber außerhalb des Projekt-Ablaufs (wie SpesenKit und BüroKit).
 
-**App öffnen:** https://kaspersebastian83-dot.github.io/finanzfit/ · Version **0.1.0** (Änderungen in `CHANGELOG.md`)
+**App öffnen:** https://kaspersebastian83-dot.github.io/finanzfit/ · Version **0.1.1** (Änderungen in `CHANGELOG.md`)
 
 ## Was die App zeigt
 
@@ -33,7 +33,7 @@ Finanzen/
 **SuSa-CSV** (Semikolon, Dezimalkomma): `Monat;Konto;Bezeichnung;Soll_Monat;Haben_Monat;Soll_kum;Haben_kum;Saldo;S_H;Quelle`
 **OPOS-CSV:** `Stand;Seite;Konto;Name;RechnungsNr;Datum;Faellig;Offen;Tage_lt_Liste;Quelle` (Seite = Debitor/Kreditor, Offen positiv)
 
-Liegen für einen Monat mehrere Dateien vor, gilt `JJJJ-MM.csv` vor einer Sammeldatei, sonst die neueste.
+Liegen für einen Monat mehrere Dateien vor, gilt `JJJJ-MM.csv` vor einer Sammeldatei, sonst die neueste. In `bank/` zählt je Monat und Bank eine Angabe: steht dieselbe Bank in zwei Dateien (z. B. OneDrive-Konfliktkopie), gilt die neuere, und „Daten & Prüfung“ nennt beide.
 
 ## Terminal und Laptop
 
@@ -48,6 +48,12 @@ Bank + Kasse 1460–1469, 1600–1899 · Forderungen 1200–1229 · Verbindlichk
 
 Tilgung in den Fixkosten = je Darlehenskonto der **Median** der monatlichen Soll-Buchungen (regelmäßige Rate); Einmalzahlungen stehen unter „Auffälligkeiten“.
 
+## Probleme melden
+
+FinanzKit hat bewusst **keinen** Link auf die Rückmeldung-App: deren Einträge (samt Screenshots) liegen im Archivordner und sind für alle im Büro lesbar. Probleme direkt an Basti – ohne Zahlen, ohne Screenshots.
+
 ## Entwicklung
 
 Alles steht in `index.html` (Vanilla JS, keine Abhängigkeiten, `APP_VERSION`). Getestet mit Chrome/Edge.
+
+`node tests/rechnen.cjs` prüft den Rechenkern (Zahlenformat, SuSa-Monatswerte, Gruppen, Tilgung, Kontostände je Bank) mit **erfundenen** Zahlen; läuft in CI bei jedem PR und auf `main`. Echte Zahlen kommen nie ins Repo.
